@@ -210,10 +210,15 @@ def load_chat_dialog():
 
 def main() -> None:
     try:
+        # Pre-populate os.environ from st.secrets if running on Streamlit Cloud
+        if hasattr(st, "secrets"):
+            for k, v in st.secrets.items():
+                if isinstance(v, (str, int, float, bool)) and k not in os.environ:
+                    os.environ[k] = str(v)
         get_settings.cache_clear()
         get_settings()
-    except ValidationError:
-        st.error("Missing GOOGLE_API_KEY. Please set it in .env.")
+    except Exception as e:
+        st.error(f"Configuration Error: {e}. Please ensure GOOGLE_API_KEY is configured in Streamlit Secrets.")
         st.stop()
         
     init_session()

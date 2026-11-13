@@ -1,7 +1,20 @@
+import os
+import json
+from typing import Any
 from functools import lru_cache
 from pathlib import Path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Pre-populate os.environ from streamlit secrets if present (for Streamlit Community Cloud)
+try:
+    import streamlit as st
+    if hasattr(st, "secrets"):
+        for k, v in st.secrets.items():
+            if isinstance(v, (str, int, float, bool)) and k not in os.environ:
+                os.environ[k] = str(v)
+except Exception:
+    pass
 
 class Settings(BaseSettings):
     """
@@ -16,7 +29,7 @@ class Settings(BaseSettings):
     
     # Optional fields with predefined default values
     gemini_model: str = "gemini-3.5-flash-lite"
-    gemini_fallback_models: list[str] = [
+    gemini_fallback_models: Any = [
         "gemini-3.5-flash-lite",
         "gemini-2.5-flash",
         "gemini-3.6-flash",
@@ -30,17 +43,19 @@ class Settings(BaseSettings):
     max_user_input_length: int = 500
     debug: bool = False
 
-    @field_validator("gemini_fallback_models", mode="before")
+    @field_validator("gemini_fallback_models", mode="after")
     @classmethod
     def _parse_fallback_models(cls, v):
         if isinstance(v, str):
-            if v.startswith("[") and v.endswith("]"):
-                import json
+            v_str = v.strip()
+            if v_str.startswith("[") and v_str.endswith("]"):
                 try:
-                    return json.loads(v)
+                    parsed = json.loads(v_str)
+                    if isinstance(parsed, list):
+                        return [str(x).strip() for x in parsed if str(x).strip()]
                 except Exception:
                     pass
-            return [m.strip() for m in v.split(",") if m.strip()]
+            return [m.strip() for m in v_str.split(",") if m.strip()]
         return v
 
     # Configuration for pydantic v2 settings resolution
