@@ -1,11 +1,28 @@
 import sys
 import os
 import uuid
+import time
+import json
+import datetime
+import dataclasses
 
 # Ensure the repository root is in the Python path for Streamlit Cloud
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
 import streamlit as st
+
+# Pre-populate os.environ immediately from st.secrets if present (for Streamlit Community Cloud)
+try:
+    if hasattr(st, "secrets"):
+        for k, v in st.secrets.items():
+            if isinstance(v, (str, int, float, bool)):
+                val_str = str(v)
+                os.environ[k] = val_str
+                os.environ[k.upper()] = val_str
+                os.environ[k.lower()] = val_str
+except Exception:
+    pass
+
 from pydantic import ValidationError
 
 from agent.config.src.config import get_settings
@@ -28,9 +45,6 @@ st.set_page_config(
 
 
 def reconstruct_ui_history(context: BookingContext) -> list:
-    from ui.app.src.view_model import strip_state_updates
-    import json
-    
     ui_history = []
     if not hasattr(context, "conversation_history") or not context.conversation_history:
         return ui_history
@@ -178,7 +192,7 @@ def clear_db_dialog():
         success = clear_db()
         if success:
             st.success("Database cleared successfully.")
-            import time; time.sleep(1.5)
+            time.sleep(1.5)
             st.rerun()
         else:
             st.error("Failed to clear database.")
@@ -213,8 +227,11 @@ def main() -> None:
         # Pre-populate os.environ from st.secrets if running on Streamlit Cloud
         if hasattr(st, "secrets"):
             for k, v in st.secrets.items():
-                if isinstance(v, (str, int, float, bool)) and k not in os.environ:
-                    os.environ[k] = str(v)
+                if isinstance(v, (str, int, float, bool)):
+                    val_str = str(v)
+                    os.environ[k] = val_str
+                    os.environ[k.upper()] = val_str
+                    os.environ[k.lower()] = val_str
         get_settings.cache_clear()
         get_settings()
     except Exception as e:
@@ -227,7 +244,6 @@ def main() -> None:
     # Top Right Menu
     with st.container(key="top_right_menu"):
         with st.popover(":material/settings:", use_container_width=False):
-            import datetime
             today = datetime.date.today().strftime("%d %B %Y")
             st.markdown(f"""
             <div class="mh-pill-mobile">
@@ -273,7 +289,6 @@ def main() -> None:
                     
                     # Render all past history
                     for msg in st.session_state.history:
-                        import os
                         avatar_path = os.path.join(os.path.dirname(__file__), "assets/mira_avatar.jpg")
                         avatar = avatar_path if msg["role"] == "assistant" else None
                         with st.chat_message(msg["role"], avatar=avatar):
@@ -320,7 +335,6 @@ def main() -> None:
                     current_history_len = len(st.session_state.history)
                     if st.session_state.get("last_history_len", 0) != current_history_len:
                         st.session_state.last_history_len = current_history_len
-                        import time
                         st.html(f"""
                         <script>
                             // Force script execution on new messages: {time.time()}
@@ -354,7 +368,6 @@ def main() -> None:
                             st.markdown(prompt)
                         
                         # Trigger scroll immediately before blocking for API
-                        import time
                         st.html(f"""
                         <script>
                             const targetDoc = window.parent.document;
@@ -424,8 +437,6 @@ def main() -> None:
                 
                 # Raw state (collapsed)
                 with st.expander("Raw State (Developer)"):
-                    import json
-                    import dataclasses
                     try:
                         if dataclasses.is_dataclass(ctx):
                             st.code(json.dumps(context_to_dict(ctx), indent=2), language="json")

@@ -11,8 +11,11 @@ try:
     import streamlit as st
     if hasattr(st, "secrets"):
         for k, v in st.secrets.items():
-            if isinstance(v, (str, int, float, bool)) and k not in os.environ:
-                os.environ[k] = str(v)
+            if isinstance(v, (str, int, float, bool)):
+                val_str = str(v)
+                os.environ[k] = val_str
+                os.environ[k.upper()] = val_str
+                os.environ[k.lower()] = val_str
 except Exception:
     pass
 
